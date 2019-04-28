@@ -11,9 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 #Packages 
 
 install.packages("tidyverse")
+install.packages("DataCombine")
 
 library(plyr)
 library(tidyverse)
+library(DataCombine)
 library(haven)
 
 #Data generation process 
@@ -122,3 +124,52 @@ Master2 <- full_join(Master2, Atop, by=c("ccodea", "ccodeb", "year"), copy=FALSE
 
 Master3 <- filter(Master2, ccodea != 2, ccodeb != 2, year <= 2012, year >= 1949)
 
+#Creating a variable which only identifies if a mid occured in that dyad-year
+head(Master3$hihost, 1000)
+Master3 <- Master3 %>%
+    mutate(Mid = ifelse(is.na(hihost), 0, 1))
+head(Master3$Mid, 1000)
+
+#Creating a variable which only identifies if a Mid which involved the use of force occured in that dyad-year.
+head(Master3$hihost, 1000)
+Master3 <- Master3 %>%
+    mutate(Use_Force = ifelse(hihost > 3, 1, 0))
+Master3$Use_Force[is.na(Master3$Use_Force)] <- 0
+head(Master3$Use_Force, 1000)
+
+#Creating variable identifying joint democracy
+Master3 <- Master3 %>%
+    mutate(Joint_Dem = ifelse(politya >= 6 & polityb >=6, 1, 0))
+head(Master3$Joint_Dem, 1000)
+
+#Creating variable measuring relative capabilities
+Master3 <- filter(Master3, cinca != -9, cincb != -9)
+Master3 <- Master3 %>%
+    mutate(Relative_Cap = cinca/(cinca+cincb))
+head(Master3$Relative_Cap, 1000)
+
+#Creating variable identifying if at least one member of the dyad is a major power.
+Master3 <- Master3 %>%
+    mutate(Joint_Dem = ifelse(majpow1 == 1 | majpow2 == 1, 1, 0))
+head(Master3$Joint_Dem, 1000)
+
+#Creating a variable identifying if the dyad had experienced a MID in the previous two years.
+Master3 <- slide(Master3, Var = "Mid", GroupVar = "" slideBy = -2)
+
+#Variable identfying the presence of an alliance between the two members of the dyad
+Master3 <- Master3 %>%
+    mutate(Ally = ifelse(atopally ==1, 1, 0))
+Master3$Ally[is.na(Master3$Ally)] <- 0
+head(Master3$Ally, 1000)
+
+#Variable identifying if the two members of the dyad are in the same region
+Master3 <- Master3 %>%
+    mutate(Same_Region = ifelse(region1 == region2, 1, 0))
+head(Master3$Same_Region, 1000)
+
+#Creating a naval capability variable by modifying the systemic proportion of naval tonnage held by the US
+Master3 <- Master3 %>%
+    mutate(US_Naval_Cap =(milex/milper)*tonn_prop) 
+Master3 <- Master3 %>%
+    mutate(US_Naval_Cap = (US_Naval_Cap/10000)) 
+head(Master3$US_Naval_Cap, 1000)
