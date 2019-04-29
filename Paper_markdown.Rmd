@@ -12,11 +12,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 install.packages("tidyverse")
 install.packages("DataCombine")
+install.packages("dotwhisker")
 
 library(plyr)
 library(tidyverse)
 library(DataCombine)
 library(haven)
+library(dotwhisker)
+
+options(digits = 4)
 
 #Data generation process 
 
@@ -108,6 +112,7 @@ Master
 
 #mergin in dyadic mid data
 Master2 <- full_join(Master, Dyadic_MID, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
+summary(Master2$year)
 
 #Merging in polity iv datasets a and b.
 Master2 <- inner_join(Master2, PolityIVa, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
@@ -122,7 +127,14 @@ Master2 <- inner_join(Master2, NMCB, by=c("ccodeb", "year"), copy=FALSE, suffix=
 
 Master2 <- full_join(Master2, Atop, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 
-Master3 <- filter(Master2, ccodea != 2, ccodeb != 2, year <= 2012, year >= 1949)
+Master3 <- filter(Master2, ccodea != 2, ccodeb != 2, year < 2012, year >= 1950)
+
+
+
+
+
+
+#Variable Generation
 
 #Creating a variable which only identifies if a mid occured in that dyad-year
 head(Master3$hihost, 1000)
@@ -139,19 +151,13 @@ head(Master3$Use_Force, 1000)
 
 #Creating variable identifying joint democracy
 Master3 <- Master3 %>%
-    mutate(Joint_Dem = ifelse(politya >= 6 & polityb >=6, 1, 0))
+    mutate(Joint_Dem = ifelse(polity2a >= 6 & polity2b >=6, 1, 0))
 head(Master3$Joint_Dem, 1000)
-
-#Creating variable measuring relative capabilities
-Master3 <- filter(Master3, cinca != -9, cincb != -9)
-Master3 <- Master3 %>%
-    mutate(Relative_Cap = cinca/(cinca+cincb))
-head(Master3$Relative_Cap, 1000)
 
 #Creating variable identifying if at least one member of the dyad is a major power.
 Master3 <- Master3 %>%
-    mutate(Joint_Dem = ifelse(majpow1 == 1 | majpow2 == 1, 1, 0))
-head(Master3$Joint_Dem, 1000)
+    mutate(Major = ifelse(majpow1 == 1 | majpow2 == 1, 1, 0))
+head(Master3$Major, 1000)
 
 #Creating a variable identifying if the dyad had experienced a MID in the previous two years.
 Master3 <- slide(Master3, Var = "Mid", GroupVar = "" slideBy = -2)
@@ -173,3 +179,64 @@ Master3 <- Master3 %>%
 Master3 <- Master3 %>%
     mutate(US_Naval_Cap = (US_Naval_Cap/10000)) 
 head(Master3$US_Naval_Cap, 1000)
+
+#Binary variable identifying if the dyad year is during or after the Cold War
+Master3 <- Master3 %>%
+    mutate(Post_Cold_War = ifelse(year > 1990, 1, 0)) 
+
+#Creating variable measuring relative capabilities
+Master3 <- filter(Master3, cinca != -9, cincb != -9)
+Master3 <- Master3 %>%
+    mutate(Relative_Cap = cinca/(cinca+cincb))
+head(Master3$Relative_Cap, 1000)
+
+Master3 <- Master3 %>%
+    mutate(Hostility = 0) %>%
+    Hostility[hihost == 2] <- 1 %>%
+    Hostility[hihost == 3] <- 2 %>%
+    Hostility[hihost == 4] <- 3 %>%
+    Hostility[hihost == 5] <- 4 %>%
+    Hostility[ifelse(is.na(hihost))] <- 0
+
+Master3 <- Master3 %>%
+  rename(
+    Contiguous = contig,
+  ) 
+
+Master4 <- select(Master3, year, Mid, Use_Force, US_Naval_Cap, Same_Region, Contiguous, Ally, Joint_Dem, Relative_Cap, Major, Post_Cold_War)
+summary(Master4)
+
+
+
+
+
+
+
+#Statistical Tests
+
+#Bivariate Logits
+MID_BI_Log <- glm(Mid ~ US_Naval_Cap, data = Master4, family=binomial)
+summary(MID_BI_Log)
+dwplot(MID_BI_Log)
+
+Force_BI_Log <- glm(Use_Force ~ US_Naval_Cap, data = Master4, family=binomial)
+summary(Force_BI_Log)
+dwplot(Force_BI_Log)
+
+
+#Full Models
+  #Logistic regression
+MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Same_Region + Contiguous + Ally + Joint_Dem + Relative_Cap + Major + Post_Cold_War, data = Master4)
+summary(MID_Full_Log)
+dwplot(MID_Full_Log)
+
+Force_Full_Log <- glm(Use_Force ~ US_Naval_Cap + Same_Region + Contiguous + Ally + Joint_Dem + Relative_Cap, data = Master4)
+summary(Force_Full_Log)
+dwplot(Force_Full_Log)
+
+  #Mlogit model
+Hostility_Mlog <- mlogit(Hostility ~ US_Naval_Cap + Same_Region + Contiguous + Ally + Joint_Dem + Relative_Cap, data = Master4, reflevel = 0)
+summary(Hostility_Mlog)
+dwplot(Hostility_Mlog)
+
+  #Heckman model 
