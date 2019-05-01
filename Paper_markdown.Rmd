@@ -13,18 +13,35 @@ knitr::opts_chunk$set(echo = TRUE)
 install.packages("tidyverse")
 install.packages("DataCombine")
 install.packages("dotwhisker")
+install.packages("data.table")
+install.packages("mlogit")
+install.packages("margins")
+install.packages("nnet")
+install.packages("reshape2")
 
 library(plyr)
 library(tidyverse)
 library(DataCombine)
 library(haven)
 library(dotwhisker)
+library(data.table)
+library(mlogit)
+library(ggplot2)
+library(margins)
+library(nnet)
+library(reshape2)
 
-options(digits = 4)
+
+
+
+
+
+
 
 #Data generation process 
+#Prepping datasets for merging.
 
-dyadic_mid_3_1_may_2018 <-as_tibble( read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/dyadic_mid_3.1_may_2018.dta"))
+dyadic_mid_3_1_may_2018 <- as.data.frame( read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/dyadic_mid_3.1_may_2018.dta"))
 View(dyadic_mid_3_1_may_2018)
 
 #Renaming variables in MIDs data
@@ -33,11 +50,12 @@ Dyadic_MID <- dyadic_mid_3_1_may_2018 %>%
     ccodea = statea,
     ccodeb = stateb
   ) 
-Dyadic_MID
+Dyadic_MID <- select(Dyadic_MID, ccodea, ccodeb, year, hihost)
+view(Dyadic_MID)
 
 
 #Relative capabilities data
-NMC_5_0 <- as_tibble(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/NMC_5_0.dta"))
+NMC_5_0 <- as.data.frame(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/NMC_5_0.dta"))
 View(NMC_5_0)
 NMC <- select(NMC_5_0, ccode, year, irst, milex, milper, pec, tpop, upop, cinc)
 NMCA <- NMC %>%
@@ -66,15 +84,23 @@ NMCB <- NMC %>%
   ) 
 NMCB
 
+
 #Importing naval data, removing all but the data for the U.S., keeping only relevant variables.
-crisher_souva_navaldata_II <- as_tibble(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/crisher_souva_navaldata_II.dta"))
-View(crisher_souva_navaldata_II)
+crisher_souva_navaldata_II <- as.data.frame(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/crisher_souva_navaldata_II.dta"))
 Naval1 <- filter(crisher_souva_navaldata_II, cowcode == 2)
 Naval2 <- select(Naval1, year, totton, tonn_prop, milex, milper)
-
+USNaval <- Naval2 %>%
+  rename(
+    ustoton = totton,
+    ustonn_prop = tonn_prop,
+    usmilex = milex,
+    usmilper = milper,
+  )  
+view(USNaval)
+  
+  
 #Importing PolityIV data and creating two seperate datasets to apply to both members of the dyad.
-PolityIV <- as_tibble(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/PolityIV.dta"))
-view(PolityIV)
+PolityIV <- as.data.frame(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/PolityIV.dta"))
 
 PolityIV1 <- select(PolityIV, year, ccode, democ, autoc, polity, polity2)
 PolityIVa <- PolityIV1 %>%
@@ -82,7 +108,6 @@ PolityIVa <- PolityIV1 %>%
     ccodea = ccode,
     democa = democ,
     autoca = autoc,
-    politya = polity,
     polity2a = polity2
   ) 
 view(PolityIVa)
@@ -92,15 +117,23 @@ PolityIVb <- PolityIV1 %>%
     ccodeb = ccode,
     democb = democ,
     autocb = autoc,
-    polityb = polity,
     polity2b = polity2
   ) 
 PolityIVb
 
-Atop <- as_tibble(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/Atop_stata.dta"))
-view(Atop)
 
-politically_relevant <- as_tibble(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/politically_relevant.dta"))
+Alliance <- as.data.frame(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/alliance_v4.1_by_directed_yearly.dta"))
+Alliance <- Alliance %>%
+  rename(
+    ccodea = ccode1,
+    ccodeb = ccode2, 
+  )
+  
+Alliance <- select(Alliance, ccodea, ccodeb, year, defense, neutrality, nonaggression, entente)
+view(Alliance)
+
+
+politically_relevant <- as.data.frame(read_dta("C:/Users/packe/Documents/Methods_3/Paper/Datasets/politically_relevant.dta"))
 view(politically_relevant)
 
 Master <- politically_relevant %>%
@@ -108,27 +141,39 @@ Master <- politically_relevant %>%
     ccodea = ccode1,
     ccodeb = ccode2, 
   ) 
-Master
+view(Master)
+
+
+
+
+
+
+#Merging datasets
+
 
 #mergin in dyadic mid data
 Master2 <- full_join(Master, Dyadic_MID, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
-summary(Master2$year)
+summary(Master2)
+
+Master2 <- inner_join(Master2, Alliance, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 
 #Merging in polity iv datasets a and b.
 Master2 <- inner_join(Master2, PolityIVa, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
 Master2 <- inner_join(Master2, PolityIVb, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
+summary(Master2)
 
 #merging in data on US naval capabilities
-Master2 <- inner_join(Master2, Naval2, by=c("year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- inner_join(Master2, USNaval, by=c("year"), copy=FALSE, suffix=c("x", "y"))
+
+plot(Naval2$year, Naval2$totton, main="US Naval Capabilities Over Time",
+    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Naval2$year,Naval2$totton), col="blue"))
 
 #merging in data on material capabilities
 Master2 <- inner_join(Master2, NMCA, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
 Master2 <- inner_join(Master2, NMCB, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 
-Master2 <- full_join(Master2, Atop, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
-
 Master3 <- filter(Master2, ccodea != 2, ccodeb != 2, year < 2012, year >= 1950)
-
+summary(Master3)
 
 
 
@@ -137,35 +182,50 @@ Master3 <- filter(Master2, ccodea != 2, ccodeb != 2, year < 2012, year >= 1950)
 #Variable Generation
 
 #Creating a variable which only identifies if a mid occured in that dyad-year
-head(Master3$hihost, 1000)
 Master3 <- Master3 %>%
     mutate(Mid = ifelse(is.na(hihost), 0, 1))
-head(Master3$Mid, 1000)
+summary(Master3$Mid)
 
 #Creating a variable which only identifies if a Mid which involved the use of force occured in that dyad-year.
-head(Master3$hihost, 1000)
 Master3 <- Master3 %>%
     mutate(Use_Force = ifelse(hihost > 3, 1, 0))
 Master3$Use_Force[is.na(Master3$Use_Force)] <- 0
-head(Master3$Use_Force, 1000)
+summary(Use_Force)
+ftable(Use_Force)
+ 
+
+Master3$Hostility[is.na(Master3$hihost)] <- 0 
+Master3$Hostility[Master3$hihost==2] <- 1 
+Master3$Hostility[Master3$hihost==3] <- 2 
+Master3$Hostility[Master3$hihost==4] <- 3 
+Master3$Hostility[Master3$hihost==5] <- 4 
+ftable(Master3$Hostility)
 
 #Creating variable identifying joint democracy
 Master3 <- Master3 %>%
     mutate(Joint_Dem = ifelse(polity2a >= 6 & polity2b >=6, 1, 0))
 head(Master3$Joint_Dem, 1000)
 
+#Creating variable measuring relative capabilities
+Master3 <- filter(Master3, cinca != -9, cincb != -9)
+Master3 <- Master3 %>%
+    mutate(Relative_Cap = cinca/(cinca+cincb))
+head(Master3$Relative_Cap, 1000)
+
 #Creating variable identifying if at least one member of the dyad is a major power.
 Master3 <- Master3 %>%
     mutate(Major = ifelse(majpow1 == 1 | majpow2 == 1, 1, 0))
 head(Master3$Major, 1000)
 
-#Creating a variable identifying if the dyad had experienced a MID in the previous two years.
-Master3 <- slide(Master3, Var = "Mid", GroupVar = "" slideBy = -2)
+#Creating a variable identifying if the dyad had experienced a MID in the previous five years.
+Master3$Lag_Mid <- lag(Master3$Mid, 5)
 
 #Variable identfying the presence of an alliance between the two members of the dyad
 Master3 <- Master3 %>%
-    mutate(Ally = ifelse(atopally ==1, 1, 0))
-Master3$Ally[is.na(Master3$Ally)] <- 0
+    mutate(Ally = ifelse(atopally == "1", 1, 0))
+    mutate(Ally[is.na(Ally)] <- 0))
+    summary(Master3$atopally)
+summary(Master3$Ally)
 head(Master3$Ally, 1000)
 
 #Variable identifying if the two members of the dyad are in the same region
@@ -175,41 +235,36 @@ head(Master3$Same_Region, 1000)
 
 #Creating a naval capability variable by modifying the systemic proportion of naval tonnage held by the US
 Master3 <- Master3 %>%
-    mutate(US_Naval_Cap =(milex/milper)*tonn_prop) 
+    mutate(US_Naval_Cap =(usmilex/usmilper)*ustonn_prop) 
 Master3 <- Master3 %>%
     mutate(US_Naval_Cap = (US_Naval_Cap/10000)) 
 head(Master3$US_Naval_Cap, 1000)
+
+plot(Master5$year, Master5$US_Naval_Cap, main="US Naval Capabilities Over Time",
+    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Master5$year,Master5$US_Naval_Cap), col="blue"))
+
 
 #Binary variable identifying if the dyad year is during or after the Cold War
 Master3 <- Master3 %>%
     mutate(Post_Cold_War = ifelse(year > 1990, 1, 0)) 
 
-#Creating variable measuring relative capabilities
-Master3 <- filter(Master3, cinca != -9, cincb != -9)
-Master3 <- Master3 %>%
-    mutate(Relative_Cap = cinca/(cinca+cincb))
-head(Master3$Relative_Cap, 1000)
-
-Master3 <- Master3 %>%
-    mutate(Hostility = 0) %>%
-    Hostility[hihost == 2] <- 1 %>%
-    Hostility[hihost == 3] <- 2 %>%
-    Hostility[hihost == 4] <- 3 %>%
-    Hostility[hihost == 5] <- 4 %>%
-    Hostility[ifelse(is.na(hihost))] <- 0
 
 Master3 <- Master3 %>%
   rename(
     Contiguous = contig,
   ) 
 
-Master4 <- select(Master3, year, Mid, Use_Force, US_Naval_Cap, Same_Region, Contiguous, Ally, Joint_Dem, Relative_Cap, Major, Post_Cold_War)
+Master4 <- select(Master3, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid)
 summary(Master4)
 
+Master5 <- full_join(Master4, Alliance, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 
-
-
-
+Master5 <- Master5 %>%
+    mutate(Ally =0)
+Master5$Ally[Master5$neutrality==1] <- 1 
+Master5$Ally[Master5$nonaggression==1] <- 1 
+Master5$Ally[Master5$defense==1] <- 1 
+Master5$Ally[Master5$entente==1] <- 1 
 
 
 #Statistical Tests
@@ -226,17 +281,70 @@ dwplot(Force_BI_Log)
 
 #Full Models
   #Logistic regression
-MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Same_Region + Contiguous + Ally + Joint_Dem + Relative_Cap + Major + Post_Cold_War, data = Master4)
+MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Master4, family=binomial)
+dwplot(MID_Full_Log)
+
+
+
+Master5 <- Master3 %>%
+    mutate(Relative_Cap = cinca/cincb)
+
+MID_Full_Log2 <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master5, family=binomial)
+summary(MID_Full_Log2)
+dwplot(MID_Full_Log2, show_intercept=TRUE, model_name = "Logistic Model", vline=geom_vline(xintercept=0), dot_args = list(size=3))
+exp(coef(MID_Full_Log2))
+
+margins(MID_Full_Log2)
+margins(MID_Full_Log2, at = list(US_Naval_Cap = 0:1))
+cplot(MID_Full_Log2, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of MID given US naval capabilities")
+
+Force_Full_Log2 <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master5, family=binomial)
+summary(Force_Full_Log2)
+dwplot(Force_Full_Log2, show_intercept=TRUE, vline=geom_vline(xintercept=0), dot_args = list(size=3))
+exp(coef(Force_Full_Log2))
+test1 <- data.frame(exp(coef(Force_Full_Log2)))
+ggplot(exp(coef(Force_Full_Log2)))
+
+margins(Force_Full_Log2)
+cplot(Force_Full_Log2, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of (violent)MID given US naval capabilities")
+
+
+
+
+
+MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War, data = Master4, family=binomial)
 summary(MID_Full_Log)
 dwplot(MID_Full_Log)
 
-Force_Full_Log <- glm(Use_Force ~ US_Naval_Cap + Same_Region + Contiguous + Ally + Joint_Dem + Relative_Cap, data = Master4)
+Force_Full_Log <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Master4, family=binomial)
 summary(Force_Full_Log)
 dwplot(Force_Full_Log)
 
   #Mlogit model
-Hostility_Mlog <- mlogit(Hostility ~ US_Naval_Cap + Same_Region + Contiguous + Ally + Joint_Dem + Relative_Cap, data = Master4, reflevel = 0)
+Hostility_Mlog <- mlogit(Hostility ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Mlogit2, refleve=0)
+
 summary(Hostility_Mlog)
 dwplot(Hostility_Mlog)
 
-  #Heckman model 
+Master5 <- Master4
+Mlogit2 <- mlogit.data(Master5, varrying=7:14, choice="Hostility", shape="wide") 
+Mlogittest <- mlogit()
+
+
+
+
+
+
+Master6 <- Master5
+Master6$Hostility <- relevel(Master6$Hostility, ref = "0")
+test <- multinom(Hostility ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Master6)
+summary(test)
+z <- summary(test)$coefficients/summary(test)$standard.errors
+p <- (1 - pnorm(abs(z), 0, 1)) *2
+
+exp(coef(test))
+head(pp <- fitted(test))
+test2 <- data.frame(Hostility = c("0", "1", "2", "3", "4"), US_Naval_Cap = mean(Master6$US_Naval_Cap), Relative_Cap = mean(Master6$Relative_Cap), Joint_Dem = mean(Master6$Joint_Dem), Major = mean(Master6$Major), Same_Region = mean(Master6$Same_Region), Contiguous = mean(Master6$Contiguous), Post_Cold_War = mean(Master6$Post_Cold_War), Lag_Mid = mean(Master6$Lag_Mid))
+predict(test, Master6 = test2, "probs")
+
+
