@@ -8,7 +8,7 @@ output:
     fig_caption: yes
     keep_tex: no
     latex_engine: pdflatex
-    template: svm-latex-ms2.tex
+    template: svm-latex-ms2.tex.url
   word_document: default
 citecolor: black
 biblio-style: apsr
@@ -16,18 +16,13 @@ endnote: no
 fontsize: 12pt
 ---
 
+options(tinytex.verbose = TRUE)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-install.packages("tidyverse")
-install.packages("DataCombine")
-install.packages("dotwhisker")
-install.packages("data.table")
-install.packages("mlogit")
-install.packages("margins")
-install.packages("nnet")
-install.packages("reshape2")
+```
 
+```{r, include=FALSE}
 library(plyr)
 library(tidyverse)
 library(DataCombine)
@@ -45,7 +40,8 @@ library(reshape2)
 
 
 
-```
+```{r, include=FALSE, cache=TRUE}
+options(tinytex.verbose = TRUE)
 #Data generation process 
 #Prepping datasets for merging.
 
@@ -150,37 +146,40 @@ Master <- politically_relevant %>%
     ccodeb = ccode2, 
   ) 
 view(Master)
-```
-
-
-
 
 ```
+
+
+
+
+```{r, include=FALSE, cache=TRUE}
+options(tinytex.verbose = TRUE)
 #Merging datasets
 
 
 #mergin in dyadic mid data
-Master2 <- full_join(Master, Dyadic_MID, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
-summary(Master2)
-
 Master2 <- merge(Master, Dyadic_MID, by=c("ccodea", "ccodeb", "year"), all.x = TRUE, all.y = TRUE)
 
-Master2 <- left_join(Master2, Alliance, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- merge(Master2, Alliance, by=c("ccodea", "ccodeb", "year"), all.x = TRUE)
 
 #Merging in polity iv datasets a and b.
-Master2 <- left_join(Master2, PolityIVa, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
-Master2 <- left_join(Master2, PolityIVb, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
-summary(Master2)
+
+Master2 <- merge(Master2, PolityIVa, by=c("ccodea", "year"), all.x = TRUE)
+
+Master2 <- merge(Master2, PolityIVb, by=c("ccodeb", "year"), all.x = TRUE)
 
 #merging in data on US naval capabilities
-Master2 <- left_join(Master2, USNaval, by=c("year"), copy=FALSE, suffix=c("x", "y"))
+
+Master2 <- merge(Master2, USNaval, by=c("year"), all.x = TRUE)
 
 plot(Naval2$year, Naval2$totton, main="US Naval Capabilities Over Time",
     xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Naval2$year,Naval2$totton), col="blue"))
 
 #merging in data on material capabilities
-Master2 <- left_join(Master2, NMCA, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
-Master2 <- left_join(Master2, NMCB, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- merge(Master2, NMCA, by=c("ccodea", "year"), all.x = TRUE)
+
+Master2 <- merge(Master2, NMCB, by=c("ccodeb", "year"), all.x = TRUE)
+
 
 Master3 <- filter(Master2, ccodea != 2, ccodeb != 2, year < 2012, year >= 1950)
 summary(Master3)
@@ -188,7 +187,8 @@ summary(Master3)
 
 
 
-```
+```{r, include=FALSE, cache=TRUE}
+options(tinytex.verbose = TRUE)
 #Variable Generation
 
 #Creating a variable which only identifies if a mid occured in that dyad-year
@@ -200,8 +200,8 @@ summary(Master3$Mid)
 Master3 <- Master3 %>%
     mutate(Use_Force = ifelse(hihost > 3, 1, 0))
 Master3$Use_Force[is.na(Master3$Use_Force)] <- 0
-summary(Use_Force)
-ftable(Use_Force)
+summary(Master3$Use_Force)
+ftable(Master3$Use_Force)
  
 
 Master3$Hostility[is.na(Master3$hihost)] <- 0 
@@ -232,11 +232,12 @@ Master3$Lag_Mid <- lag(Master3$Mid, 5)
 
 #Variable identfying the presence of an alliance between the two members of the dyad
 Master3 <- Master3 %>%
-    mutate(Ally = ifelse(atopally == "1", 1, 0))
-    mutate(Ally[is.na(Ally)] <- 0))
-    summary(Master3$atopally)
-summary(Master3$Ally)
-head(Master3$Ally, 1000)
+    mutate(Ally =0)
+Master3$Ally[Master3$neutrality==1] <- 1 
+Master3$Ally[Master3$nonaggression==1] <- 1 
+Master3$Ally[Master3$defense==1] <- 1 
+Master3$Ally[Master3$entente==1] <- 1 
+
 
 #Variable identifying if the two members of the dyad are in the same region
 Master3 <- Master3 %>%
@@ -250,33 +251,26 @@ Master3 <- Master3 %>%
     mutate(US_Naval_Cap = (US_Naval_Cap/10000)) 
 head(Master3$US_Naval_Cap, 1000)
 
-plot(Master5$year, Master5$US_Naval_Cap, main="US Naval Capabilities Over Time",
-    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Master5$year,Master5$US_Naval_Cap), col="blue"))
+plot(Master3$year, Master3$US_Naval_Cap, main="US Naval Capabilities Over Time",
+    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Master3$year,Master3$US_Naval_Cap), col="blue"))
 
 
 #Binary variable identifying if the dyad year is during or after the Cold War
 Master3 <- Master3 %>%
     mutate(Post_Cold_War = ifelse(year > 1990, 1, 0)) 
 
-
 Master3 <- Master3 %>%
   rename(
     Contiguous = contig,
   ) 
 
-Master4 <- Master3 %>%
-    mutate(Ally =0)
-Master4$Ally[Master4$neutrality==1] <- 1 
-Master4$Ally[Master4$nonaggression==1] <- 1 
-Master4$Ally[Master4$defense==1] <- 1 
-Master4$Ally[Master4$entente==1] <- 1 
-
-Master4 <- select(Master4, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid, Ally)
+Master4 <- select(Master3, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid, Ally)
 summary(Master4)
 ```
 
 
-```
+```{r, include=FALSE, cache=TRUE}
+options(tinytex.verbose = TRUE)
 #Statistical Tests
 
 #Bivariate Logits
@@ -293,23 +287,16 @@ dwplot(Force_BI_Log)
   #Logistic regression
 MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Ally, data = Master4, family=binomial)
 summary(MID_Full_Log) 
-dwplot(MID_Full_Log)
 
 
+dwplot(MID_Full_Log, show_intercept=TRUE, model_name = "Logistic Model", vline=geom_vline(xintercept=0), dot_args = list(size=3))
+exp(coef(MID_Full_Log))
 
-Master5 <- Master3 %>%
-    mutate(Relative_Cap = cinca/cincb)
-
-MID_Full_Log2 <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master5, family=binomial)
-summary(MID_Full_Log2)
-dwplot(MID_Full_Log2, show_intercept=TRUE, model_name = "Logistic Model", vline=geom_vline(xintercept=0), dot_args = list(size=3))
-exp(coef(MID_Full_Log2))
-
-margins(MID_Full_Log2)
-margins(MID_Full_Log2, at = list(US_Naval_Cap = 0:1))
+margins(MID_Full_Log)
+margins(MID_Full_Log, at = list(US_Naval_Cap = 0:1))
 cplot(MID_Full_Log2, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of MID given US naval capabilities")
 
-Force_Full_Log2 <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master5, family=binomial)
+Force_Full_Log2 <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master4, family=binomial)
 summary(Force_Full_Log2)
 dwplot(Force_Full_Log2, show_intercept=TRUE, vline=geom_vline(xintercept=0), dot_args = list(size=3))
 exp(coef(Force_Full_Log2))
