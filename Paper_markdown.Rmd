@@ -1,15 +1,24 @@
 ---
-title: "Paper_text_working_file"
-author: "Addison"
-date: "April 5, 2019"
-output: html_document
+title: "Global Reach or Out of Reach"
+author: "Addison Huygens"
+date: "May 10, 2019"
+output:
+  pdf_document:
+    citation_package: natbib
+    fig_caption: yes
+    keep_tex: no
+    latex_engine: pdflatex
+    template: svm-latex-ms2.tex
+  word_document: default
+citecolor: black
+biblio-style: apsr
+endnote: no
+fontsize: 12pt
 ---
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-#Packages 
-
 install.packages("tidyverse")
 install.packages("DataCombine")
 install.packages("dotwhisker")
@@ -31,13 +40,12 @@ library(margins)
 library(nnet)
 library(reshape2)
 
+```
+#Packages 
 
 
 
-
-
-
-
+```
 #Data generation process 
 #Prepping datasets for merging.
 
@@ -142,12 +150,12 @@ Master <- politically_relevant %>%
     ccodeb = ccode2, 
   ) 
 view(Master)
+```
 
 
 
 
-
-
+```
 #Merging datasets
 
 
@@ -155,30 +163,32 @@ view(Master)
 Master2 <- full_join(Master, Dyadic_MID, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 summary(Master2)
 
-Master2 <- inner_join(Master2, Alliance, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- merge(Master, Dyadic_MID, by=c("ccodea", "ccodeb", "year"), all.x = TRUE, all.y = TRUE)
+
+Master2 <- left_join(Master2, Alliance, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 
 #Merging in polity iv datasets a and b.
-Master2 <- inner_join(Master2, PolityIVa, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
-Master2 <- inner_join(Master2, PolityIVb, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- left_join(Master2, PolityIVa, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- left_join(Master2, PolityIVb, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 summary(Master2)
 
 #merging in data on US naval capabilities
-Master2 <- inner_join(Master2, USNaval, by=c("year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- left_join(Master2, USNaval, by=c("year"), copy=FALSE, suffix=c("x", "y"))
 
 plot(Naval2$year, Naval2$totton, main="US Naval Capabilities Over Time",
     xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Naval2$year,Naval2$totton), col="blue"))
 
 #merging in data on material capabilities
-Master2 <- inner_join(Master2, NMCA, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
-Master2 <- inner_join(Master2, NMCB, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- left_join(Master2, NMCA, by=c("ccodea", "year"), copy=FALSE, suffix=c("x", "y"))
+Master2 <- left_join(Master2, NMCB, by=c("ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
 
 Master3 <- filter(Master2, ccodea != 2, ccodeb != 2, year < 2012, year >= 1950)
 summary(Master3)
+```
 
 
 
-
-
+```
 #Variable Generation
 
 #Creating a variable which only identifies if a mid occured in that dyad-year
@@ -209,7 +219,7 @@ head(Master3$Joint_Dem, 1000)
 #Creating variable measuring relative capabilities
 Master3 <- filter(Master3, cinca != -9, cincb != -9)
 Master3 <- Master3 %>%
-    mutate(Relative_Cap = cinca/(cinca+cincb))
+    mutate(Relative_Cap = cinca/cincb)
 head(Master3$Relative_Cap, 1000)
 
 #Creating variable identifying if at least one member of the dyad is a major power.
@@ -254,19 +264,19 @@ Master3 <- Master3 %>%
     Contiguous = contig,
   ) 
 
-Master4 <- select(Master3, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid)
-summary(Master4)
-
-Master5 <- full_join(Master4, Alliance, by=c("ccodea", "ccodeb", "year"), copy=FALSE, suffix=c("x", "y"))
-
-Master5 <- Master5 %>%
+Master4 <- Master3 %>%
     mutate(Ally =0)
-Master5$Ally[Master5$neutrality==1] <- 1 
-Master5$Ally[Master5$nonaggression==1] <- 1 
-Master5$Ally[Master5$defense==1] <- 1 
-Master5$Ally[Master5$entente==1] <- 1 
+Master4$Ally[Master4$neutrality==1] <- 1 
+Master4$Ally[Master4$nonaggression==1] <- 1 
+Master4$Ally[Master4$defense==1] <- 1 
+Master4$Ally[Master4$entente==1] <- 1 
+
+Master4 <- select(Master4, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid, Ally)
+summary(Master4)
+```
 
 
+```
 #Statistical Tests
 
 #Bivariate Logits
@@ -281,7 +291,8 @@ dwplot(Force_BI_Log)
 
 #Full Models
   #Logistic regression
-MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Master4, family=binomial)
+MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Ally, data = Master4, family=binomial)
+summary(MID_Full_Log) 
 dwplot(MID_Full_Log)
 
 
@@ -346,5 +357,9 @@ exp(coef(test))
 head(pp <- fitted(test))
 test2 <- data.frame(Hostility = c("0", "1", "2", "3", "4"), US_Naval_Cap = mean(Master6$US_Naval_Cap), Relative_Cap = mean(Master6$Relative_Cap), Joint_Dem = mean(Master6$Joint_Dem), Major = mean(Master6$Major), Same_Region = mean(Master6$Same_Region), Contiguous = mean(Master6$Contiguous), Post_Cold_War = mean(Master6$Post_Cold_War), Lag_Mid = mean(Master6$Lag_Mid))
 predict(test, Master6 = test2, "probs")
+
+```
+
+This is a test
 
 
