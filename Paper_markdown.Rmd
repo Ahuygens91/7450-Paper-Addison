@@ -2,10 +2,10 @@
 output: 
   pdf_document:
     citation_package: natbib
-    keep_tex: false
+    keep_tex: true
     fig_caption: true
     latex_engine: pdflatex
-    template: svm-latex-ms2.tex.url
+    template: svm-latex-ms2.tex
 title: "Global Reach or Out of Reach"
 author: 
 - name: Addison Huygens
@@ -22,13 +22,9 @@ linkcolor: black
 endnote: no
 ---
 
-\begin{document}
 
-\begin{titlepage}
 
-test
-
-\end{titlepage}
+Test
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -296,4 +292,3 @@ dwplot(Force_BI_Log)
 
 
 
-\end{document}
