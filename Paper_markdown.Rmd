@@ -1,28 +1,37 @@
 ---
-title: "Global Reach or Out of Reach"
-author: "Addison Huygens"
-date: "May 10, 2019"
-output:
+output: 
   pdf_document:
     citation_package: natbib
-    fig_caption: yes
-    keep_tex: no
+    keep_tex: false
+    fig_caption: true
     latex_engine: pdflatex
     template: svm-latex-ms2.tex.url
-  word_document: default
-citecolor: black
-biblio-style: apsr
-endnote: no
+title: "Global Reach or Out of Reach"
+author: 
+- name: Addison Huygens
+  affiliation: University of Iowa
+abstract: "Here's where you write 100 to 250 words, depending on the journal, that describe your objective, methods, results, and conclusion."
+keywords: "Naval power hegemony"
+date: "May 10, 2019"
 fontsize: 12pt
+spacing: single
+bibliography: \dummy{`r file.path(getwd(), list.files(getwd(), "bib$"))`}
+biblio-style: apsr
+citecolor: black
+linkcolor: black
+endnote: no
 ---
 
-options(tinytex.verbose = TRUE)
+\begin{document}
+
+\begin{titlepage}
+
+test
+
+\end{titlepage}
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-```{r, include=FALSE}
 library(plyr)
 library(tidyverse)
 library(DataCombine)
@@ -36,12 +45,10 @@ library(nnet)
 library(reshape2)
 
 ```
-#Packages 
-
 
 
 ```{r, include=FALSE, cache=TRUE}
-options(tinytex.verbose = TRUE)
+
 #Data generation process 
 #Prepping datasets for merging.
 
@@ -153,7 +160,7 @@ view(Master)
 
 
 ```{r, include=FALSE, cache=TRUE}
-options(tinytex.verbose = TRUE)
+
 #Merging datasets
 
 
@@ -188,7 +195,6 @@ summary(Master3)
 
 
 ```{r, include=FALSE, cache=TRUE}
-options(tinytex.verbose = TRUE)
 #Variable Generation
 
 #Creating a variable which only identifies if a mid occured in that dyad-year
@@ -219,7 +225,7 @@ head(Master3$Joint_Dem, 1000)
 #Creating variable measuring relative capabilities
 Master3 <- filter(Master3, cinca != -9, cincb != -9)
 Master3 <- Master3 %>%
-    mutate(Relative_Cap = cinca/cincb)
+    mutate(Relative_Cap = (cinca/cincb)/100000)
 head(Master3$Relative_Cap, 1000)
 
 #Creating variable identifying if at least one member of the dyad is a major power.
@@ -261,7 +267,7 @@ Master3 <- Master3 %>%
 
 Master3 <- Master3 %>%
   rename(
-    Contiguous = contig,
+    Contiguous = contig
   ) 
 
 Master4 <- select(Master3, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid, Ally)
@@ -270,83 +276,24 @@ summary(Master4)
 
 
 ```{r, include=FALSE, cache=TRUE}
-options(tinytex.verbose = TRUE)
+
 #Statistical Tests
 
 #Bivariate Logits
 MID_BI_Log <- glm(Mid ~ US_Naval_Cap, data = Master4, family=binomial)
 summary(MID_BI_Log)
+ODDS_BI_MID <- exp(coef(MID_BI_Log))
 dwplot(MID_BI_Log)
+
 
 Force_BI_Log <- glm(Use_Force ~ US_Naval_Cap, data = Master4, family=binomial)
 summary(Force_BI_Log)
+ODDS_BI_FORCE <- exp(coef(Force_BI_Log))
 dwplot(Force_BI_Log)
 
 
-#Full Models
-  #Logistic regression
-MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Ally, data = Master4, family=binomial)
-summary(MID_Full_Log) 
-
-
-dwplot(MID_Full_Log, show_intercept=TRUE, model_name = "Logistic Model", vline=geom_vline(xintercept=0), dot_args = list(size=3))
-exp(coef(MID_Full_Log))
-
-margins(MID_Full_Log)
-margins(MID_Full_Log, at = list(US_Naval_Cap = 0:1))
-cplot(MID_Full_Log2, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of MID given US naval capabilities")
-
-Force_Full_Log2 <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master4, family=binomial)
-summary(Force_Full_Log2)
-dwplot(Force_Full_Log2, show_intercept=TRUE, vline=geom_vline(xintercept=0), dot_args = list(size=3))
-exp(coef(Force_Full_Log2))
-test1 <- data.frame(exp(coef(Force_Full_Log2)))
-ggplot(exp(coef(Force_Full_Log2)))
-
-margins(Force_Full_Log2)
-cplot(Force_Full_Log2, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of (violent)MID given US naval capabilities")
-
-
-
-
-
-MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War, data = Master4, family=binomial)
-summary(MID_Full_Log)
-dwplot(MID_Full_Log)
-
-Force_Full_Log <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Master4, family=binomial)
-summary(Force_Full_Log)
-dwplot(Force_Full_Log)
-
-  #Mlogit model
-Hostility_Mlog <- mlogit(Hostility ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Mlogit2, refleve=0)
-
-summary(Hostility_Mlog)
-dwplot(Hostility_Mlog)
-
-Master5 <- Master4
-Mlogit2 <- mlogit.data(Master5, varrying=7:14, choice="Hostility", shape="wide") 
-Mlogittest <- mlogit()
-
-
-
-
-
-
-Master6 <- Master5
-Master6$Hostility <- relevel(Master6$Hostility, ref = "0")
-test <- multinom(Hostility ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Master6)
-summary(test)
-z <- summary(test)$coefficients/summary(test)$standard.errors
-p <- (1 - pnorm(abs(z), 0, 1)) *2
-
-exp(coef(test))
-head(pp <- fitted(test))
-test2 <- data.frame(Hostility = c("0", "1", "2", "3", "4"), US_Naval_Cap = mean(Master6$US_Naval_Cap), Relative_Cap = mean(Master6$Relative_Cap), Joint_Dem = mean(Master6$Joint_Dem), Major = mean(Master6$Major), Same_Region = mean(Master6$Same_Region), Contiguous = mean(Master6$Contiguous), Post_Cold_War = mean(Master6$Post_Cold_War), Lag_Mid = mean(Master6$Lag_Mid))
-predict(test, Master6 = test2, "probs")
-
 ```
 
-This is a test
 
 
+\end{document}
