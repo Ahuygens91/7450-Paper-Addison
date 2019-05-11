@@ -23,9 +23,6 @@ endnote: no
 ---
 
 
-
-Test
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(plyr)
@@ -136,6 +133,7 @@ Alliance <- Alliance %>%
     ccodeb = ccode2, 
   )
   
+
 Alliance <- select(Alliance, ccodea, ccodeb, year, defense, neutrality, nonaggression, entente)
 view(Alliance)
 
@@ -204,7 +202,6 @@ Master3 <- Master3 %>%
 Master3$Use_Force[is.na(Master3$Use_Force)] <- 0
 summary(Master3$Use_Force)
 ftable(Master3$Use_Force)
- 
 
 Master3$Hostility[is.na(Master3$hihost)] <- 0 
 Master3$Hostility[Master3$hihost==2] <- 1 
@@ -216,18 +213,15 @@ ftable(Master3$Hostility)
 #Creating variable identifying joint democracy
 Master3 <- Master3 %>%
     mutate(Joint_Dem = ifelse(polity2a >= 6 & polity2b >=6, 1, 0))
-head(Master3$Joint_Dem, 1000)
 
 #Creating variable measuring relative capabilities
 Master3 <- filter(Master3, cinca != -9, cincb != -9)
 Master3 <- Master3 %>%
-    mutate(Relative_Cap = (cinca/cincb)/100000)
-head(Master3$Relative_Cap, 1000)
+    mutate(Relative_Cap = cinca/cincb)
 
 #Creating variable identifying if at least one member of the dyad is a major power.
 Master3 <- Master3 %>%
     mutate(Major = ifelse(majpow1 == 1 | majpow2 == 1, 1, 0))
-head(Master3$Major, 1000)
 
 #Creating a variable identifying if the dyad had experienced a MID in the previous five years.
 Master3$Lag_Mid <- lag(Master3$Mid, 5)
@@ -244,18 +238,16 @@ Master3$Ally[Master3$entente==1] <- 1
 #Variable identifying if the two members of the dyad are in the same region
 Master3 <- Master3 %>%
     mutate(Same_Region = ifelse(region1 == region2, 1, 0))
-head(Master3$Same_Region, 1000)
 
 #Creating a naval capability variable by modifying the systemic proportion of naval tonnage held by the US
 Master3 <- Master3 %>%
     mutate(US_Naval_Cap =(usmilex/usmilper)*ustonn_prop) 
 Master3 <- Master3 %>%
     mutate(US_Naval_Cap = (US_Naval_Cap/10000)) 
-head(Master3$US_Naval_Cap, 1000)
 
-plot(Master3$year, Master3$US_Naval_Cap, main="US Naval Capabilities Over Time",
-    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Master3$year,Master3$US_Naval_Cap), col="blue"))
-
+#Spending per soldier
+Master3 <- Master3 %>%
+    mutate(Spending_Per_Soldier = (usmilex/usmilper))
 
 #Binary variable identifying if the dyad year is during or after the Cold War
 Master3 <- Master3 %>%
@@ -266,7 +258,12 @@ Master3 <- Master3 %>%
     Contiguous = contig
   ) 
 
-Master4 <- select(Master3, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid, Ally)
+Master3 <- Master3 %>%
+  rename(
+    US_Tonnage = ustoton
+  ) 
+
+Master4 <- select(Master3, ccodea, ccodeb, year, Mid, Use_Force, Hostility, US_Naval_Cap, Same_Region, Contiguous, Joint_Dem, Relative_Cap, Major, Post_Cold_War, Lag_Mid, Ally, US_Tonnage, Spending_Per_Soldier)
 summary(Master4)
 ```
 
@@ -279,16 +276,128 @@ summary(Master4)
 MID_BI_Log <- glm(Mid ~ US_Naval_Cap, data = Master4, family=binomial)
 summary(MID_BI_Log)
 ODDS_BI_MID <- exp(coef(MID_BI_Log))
-dwplot(MID_BI_Log)
 
+MID2_BI_Log <- glm(Mid ~ US_Tonnage, data = Master4, family=binomial)
+summary(MID2_BI_Log)
+ODDS_BI_MID2 <- exp(coef(MID2_BI_Log))
 
 Force_BI_Log <- glm(Use_Force ~ US_Naval_Cap, data = Master4, family=binomial)
 summary(Force_BI_Log)
 ODDS_BI_FORCE <- exp(coef(Force_BI_Log))
-dwplot(Force_BI_Log)
+
+Force2_BI_Log <- glm(Use_Force ~ US_Tonnage, data = Master4, family=binomial)
+summary(Force2_BI_Log)
+ODDS_BI_FORCE2 <- exp(coef(Force2_BI_Log))
+
+
+```
+
+
+##Introduction
+
+When Xerxes sought in invade the Greek peninsula, he used several hundred ships lined side by side with wooden planks running between creating a bridge to cross his armies over the Hellespont.  Despite using his own vessels to build this massive bridge, he still had nearly a thousand warships with which to threaten the Greek coast.  The war between Athens and Sparta decades later for domination of Greece began partly as a result of the buildup of Athenian naval power and threat of Athenian control over the Greek trade routes.  In the age of sail the most dominant colonial powers were those with the greatest navies allowing them to protect trade routes and spread their empire through overseas colonization.  In the Second World War the British and American navies protected the vital convoys which supplied the British and prevented the final bastion of European resistance from falling to the German war machine.  Naval power has been the backbone of every great empire from antiquity to modernity.  No major power can become a global power if they are not dominant in terms of naval capabilities. But can the powerful fleets of a world power affect the conflicts the occur between the lesser powers in the international system?  The various schools of international relations theory argue that a hegemon will punish actors who attempt to upset the status quo.  If a state believes that the hegemon will respond to aggression, does the ability of the hegemon to project power overseas influence the conflictual behavior and decision making of that state?  This paper will investigate this question and explore any relationships between a hegemon’s naval capability and the conflict behavior of other states in the international system. 
+Using several models of logistic regression, this paper will analyze the relationship between militarized interstate dispute onset and severity and the naval capabilities of a hegemonic power. The following sections will consist of a review of the prevailing literature on hegemony and conflict initiation as well as the operationalization and effect of naval capabilities. I will introduce the theory and the data and methods used in this paper in further detail in the section following that literature review.  An analysis of the results and a discussion of the implications of this research will conclude the paper. 
+
+
+##Review of Literature
+
+The universe is held together by the gravitational pull of the objects of which it is composed. The greater the mass of the object, the greater the gravitational pull.  Those objects which have the greatest mass will become the centers of their own gravitational systems such as stars becoming the center of solar systems, drawing in planets and asteroids into orbit with its gravity.  The simple rule of gravity is, the greater the size, the greater the pull.  Much in the same way that stars and planets are able to capture and dictate the system that surrounds them, so too can powerful states dictate the physics of system in which they reside.  
+
+The gravitational pull in this case is the power of the state.  The most powerful states in the international system can establish rules and order in the international system as they see fit and punish or reward adherence to that order.  The most powerful of these states is commonly refered to the hegemon.  The concept of power in international relations is at best vague and open to interpretation.  However, despite its ambiguity it has been the foundation of international relations research and theory.  A full examination of the lexicon of the literature which seeks to define power is beyond the scope of this paper.  For my purposes I observe power in the same way as A.F.K. Organski (1968), the ability of a state to change the behavior of another.  We can observe this ability by measuring the determinants of power; the resources and material capabilities which allow states to interact and influence each other.  In this research a specific aspect of the international power of states and the hegemon, naval capability, will be the focus.
+
+The concept of a hegemon dates back to the ancient Greeks and the word hēgemonía, which loosely translated means leadership (Smith, 2012). According to several schools of international relations theory, the hegemon will establish order in the international system and will endeavor to keep the order. George Modelski (1978) referred to the hegemon as the world power and argued that these states were those entities which had a monopoly on “order-keeping” of the world system. It was the task of the world power to manage the interdependence of the other units in the international system.  What provided these world powers the ability to do so, according to Modelski, was their overwhelming advantage in naval capabilities.  States which have been traditionally seen as being hegemonic powers such as the United States, Great Britain, Spain, and the Netherlands each had enormous preponderance in naval capabilities. Great Britain for example in the late 1800s possessed roughly half of all shipping tonnage in the world, along with military ports in colonies worldwide. (Calder 2008, 7).  All five the “cycles” in Modelski’s long cycle theory of international politics featured a single world power with an overwhelming preponderance of naval power (Modelski 1978). 
+	
+However, there are theorists like John Mearsheimer who argue that naval power has little to do with the establishment or maintenance of a hegemonic order.  According to his theory which he calls offensive realism, it is land armies which conquer and hold territory and are thus the more important determinant of power (Mearsheimer 2001).  He even goes as far as to argue that no state can achieve hegemony due to the great stopping power of the world oceans. Navies, in the eyes of Mearsheimer, are force multipliers for the land forces and should be considered as supporting the army, not as a potential independent tool for preventing or resolving conflict.  
+	
+The explanatory variable in this research is the naval capabilities of the prevailing hegemon. A large and effective navy can protect shipping lanes, defend strategic coastlines, and allow for the landing of troops and supplies to a territory beyond the reach of the hegemon by land (Corbet 1984; Mahan 2004; Mearsheimer 2001).  Naval forces have evolved over time with new technologies and changing tactics, but much of the strategy and purpose of naval forces have remained the same.  States with powerful navies such as the United States and Great Britain in the past, will use their naval power to protect their interests. This includes preventing foreign powers from establishing what some refer to as “command of the sea” (Corbett 1984). One of the seminal works on the importance of naval power comes from Alfred Mahan.  Mahan (2004) argued that naval dominance was necessary for states to assume command of the seas, thereby ensuring the success of land operations, cutting off lines of communication and commerce to an enemy, and protecting one’s own commerce and interests.  Naval forces positioned in strategic locations like Gibraltar or the Suez can allow states to set up blockades and chokepoints, denying an enemy access to the sea and cutting off commerce. (Crowl 1986).  The two most common ways in which to measure naval power is by looking at the number of capital ships a state maintains and by observing the total tonnage of all blue-water capable ships in the states inventory.  I will review each method in the next few sections.
+	
+Not all naval forces are alike.  States will design their naval forces based on the nature of the mission objectives as well as the area in which those forces will operate.  A state which uses its navy to protect its coastline and exclusive economic zone will use ships designed for green-water warfare, specializing in littoral operations in shallow waters and mine clearing.  States which seek to project power a great distance and engage the navies of other states will design their naval forces for blue-water operations and long-range missions. The backbone of any naval force is the warship, the vessel which engages in combat with opposing fleets or non-state actors such as pirates.  Capital ships are often the largest and most heavily armed warships of any fleet and are capable of traveling the greatest distance.  A single capital ship can destroy entire squadrons of smaller vessels and devastate a coastline.  During the Second World War, the German battleships Bismarck and Tirpitz were designed to single handedly attack entire allied shipping convoys.  In the Pacific theater the naval conflict centered around the battleship and carrier forces of the American and Imperial navies.  The primary targets of the Japanese forces during the attack on Pearl Harbor were the American carriers and battleships tied up in the harbor. George Modelski uses capitol ships in his study of naval power and long cycles in international politics (Modelski 1987; Modelski, Thompson 1988). 
+	
+Sean Bolks and Richard Stoll (2000) also use the number of capital ships in their study of the temporal dynamics of arms races as a measure of naval power. They chose this measure over the far more common method of observing the state’s military spending because it offered several benefits.  First, it avoids some of the greatest problems associated with using military expenditure, differences in the definition and rates of military expenditures in different states. The authors use the examples of conscripts, volunteers, and retirees. Some states have militaries which rely heavily on conscription as opposed to volunteers. This allows them to pay significantly less for a military of the same size as a state which pays for volunteers. There is also issues with what exactly is considered part of military expenditures. Some countries include pensions for retirees and healthcare for their veterans as military expenditures, causing a balloon in their spending while not contributing to their forces size or capability. Other countries have even provided massive subsidies to their domestic military industries resulting in additional massive hikes in their annual military spending without any contribution to force size or composition. Bolks and Stoll avoid this issue by focusing only on those ships which are active and contribute to the military power of the state (2000).
+
+An obvious question that arises here is what constitutes a capital ship.  During what is commonly referred to as the age of sail, a capital ship would have been a ship of the line.  These large sail powered vessels were armed with multiple rows of cannon which could deliver powerful broadsides.  A large ship of the line such as the Spanish Santisima Trinidad carried more than 140 cannons; as many as entire land armies.  The successors of these ships would have been the powerful iron-clads and battleships which dominated the oceans of the late 19th and early 20th centuries (Keegan 1993).  However, during the interwar period states began experimenting with new technologies which gave rise to new classes of warships.  The aircraft carrier allowed a fleet to project offensive force hundreds of miles beyond the rand of the big gun battleships, and submarines allowed for stealthy operations below the surface. By the end of the war the powerful battlewagons which had ruled the waves for decades had been rendered obsolete.  Today the criteria for a capital ship is as ambiguous as ever.  No battleships remain in service anywhere in the world.  Carriers and nuclear submarines are seen as the hallmarks of an advanced navy and some classes of destroyers today weigh as much as World War 1 battleships.  Bolks and Stoll (2000) use the number of capital ships recorded in the data compiled by Modelski and Thompson (1988) in their study of global naval power. Modelski and Thompson observed that what constitutes a capital ship changes over the years, as described above. Thus, they change their operationalization of a capital ship in their own dataset to account for the changes in technology and definition.
+	
+Aside from the type of ship, one of the most common ways to measure the capabilities of a fleet is by looking at the total tonnage of every ship in a states inventory.  Larger ocean-going vessels and the modern equivalent of the capital ships are incredibly heavy machines.  A larger vessel is able to carry more weapons, armor, and aircraft than a smaller ship making it a more dangerous weapon.  It was for this reason that states have sought to limit the size of warships in the past.  The treaties of the Washington Naval Conference of 1921 and the London Naval Conference treaties of 1930 attempted to limit the size of warships by making states agree not to build ships of certain types to exceed a specified tonnage (Gray 2007; McBride 1997).  Joseph Maiolo (2008) examined the history of British and Soviet relative naval capabilities from the interwar period to the years just before the outbreak of World War 2 by examining the total tonnage of naval shipping produced by both countries. William Walters (2000) examined the history of American naval shipbuilding and capability in his historical review of U.S. naval ship building. Some have used both the measures of total tonnage and the total count of ocean-going ships in measuring naval capabilities. (Wolters 2011)
+
+The number of capital ships and the total tonnage of naval inventory are the two most common methods of measuring naval capability.  However, these measures do not capture one vital concept of capability, the technological quality and efficiency of a navy.  At the battle of Lepanto (1571) the combined European powers making up the Holy League faced the fleet of the Ottoman Empire.  Both fleets contained roughly the same number of ships and the same type, roughly 200 galleys using oars and sails.  The Europeans however also had six new galleasses which were the precursors to the large mast ships of the age-of-sail and were heavily armed for their time.  These new ship types were extremely effective against the older style galleys and turned the tide in favor of the European coalition (Keegan 1993).  More recent examples of the importance of technological capability were the submarine races of the Cold War.  Both the Soviet Union and the United States sought to make their submarines stealthier and more destructive by making them nuclear powered and giving them the ability to launch missiles from underwater.  China today has more submarines in their fleet than the United States. However, most of these ships are older diesel-powered models with a limited range.  The advanced nuclear-powered submarines used by the United States are quitter, faster, and far more advanced. This shortcoming of tonnage and ship counts as measures of naval power was recognized at the Washington Naval Conference by the United States which felt it was getting cheated.  Woodrow Wilson ordered an engineer to develop what he called a technical yardstick to identify the qualitative differences between ships. However, this yardstick was rejected by the other members of the conference and the terms of the treaty called for reductions in tonnage.  A key question in this research is how to incorporate a measure of technological advancement into the measure of naval capability (McBride 1997).
+
+##Theory
+In this paper I make several assumptions about the international system as well as the actors who occupy it. First, unlike John Mearsheimer I assume that states are able to achieve a level of global hegemon, and they are able to so thanks to an overwhelming advantage in naval capabilities. Naval power allows a state to control the international shipping lanes, land troops on foreign shores, and protect supply routes from across the sea thus allowing invasion forces to remain supplied and reinforced. A state cannot become a hegemon without naval supremacy,
+
+##Method
+	To test my hypothesis that increases in the naval capabilities of a hegemonic power can reduce the propensity of states to engage in militarized disputes or violent militarized disputes, I use the time-tested method of logistic regression. This test observes and records the effects of the independent variables and controls on a binary dependent variable. One of the benefits of logistic regression is that we can get the odds ratio of a particular outcome occurring, allowing us to conclude how much more likely the event is to occur based on increases in the independent variables. Two dependent variables will be tested in this paper, the first being the occurrence of a MID in a given dyad-year. The second is the occurrence of a violent MID in a given dyad year defined asa MID which has achieved a hostility level of “use of force” or “war.” Bivariate logistic models will be tested looking only at the dependent and independent variables. This will be followed by larger models which will include a series of state and dyad level controls. These models will also be replicated using the more traditional measurement of total tonnage of the U.S. fleet as a robustness check. 
+
+##Data
+The data for this project is drawn from several sources. Data on militarized disputes is drawn from the Militarized Interstate Dispute (MIDs) dataset produced by the correlates of war project. This data includes information of militarized disputes dating as far back as the early 1800s and as recently as 2012. The data includes the start and end dates of the dispute, which state was involved in the dispute coded by both country code and country abbreviation, and who the initiator of the dispute was at the time it started. Also included in this dataset is a variable which identifies the highest level of hostility achieved in this dispute. This is a catagorical variable with observations for threats of using force, displays of force, use of force, or interstate war. An example of threat to use force against an opponent would be former President George W. Bushes televised ultimatum to Saddam Hussein where he offered the former Iraqi leader an amount of time to abdicate his power, or else the US would remove him by force. Displays of force can include the deploying of troops to a contested region such as the recent deployment of the aircraft carrier USS Abraham Lincoln to the Persian Gulf, or the sailing of U.S. warships through the Taiwan Strait. The use of force would be any action in which military forces are used to attack a specified target, but the two countries are not yet at a level of open warfare. The U.S. missile strikes on Syrian airfields or the Israeli bombing of the Iraqi powerplant would constitute a use of force short of open warfare. The highest level of hostility is the case of interstate war such as the World Wars. This variable will be used and modified in this research into two separate deponent variables which are discussed in more detail below. 
+
+Data on the regime type of each member of the dyad was drawn from the PolityIV dataset produced by the Center for Systemic Peace. This dataset looks into the domestic political institutions of a state and categorizes that state as being democratic or authoritarian on a scale of -10 to 10. There are multiple different datasets which operationalize and measure the level of democracy of a state, the decision to use PolityIV was made based on overwhelming prevalence in international relations literature. 
+
+The National Material Capabilities dataset produced by the Correlates of War project was used to get data on the annual material capabilities of each member of the dyad. Like most datasets for the COW project, the NMC dataset includes data on every state dating backing to the early 1800s. This information includes the year the data was recorded as well as several measures of raw materials and national resources which will be discussed later in this paper when the controls are introduced. The data on alliances was also compile by the Correlates of War project and was recorded in the Alliances dataset. 
+
+Lastly, data on the naval capabilities of the United States was taken from the Power at Sea dataset compiled by Brian Crisher and Mark Souva of the University of West Florida. This data includes observations for the size of state navies for 196 countries from 1865-2011 including the total tonnage of a state’s fleet, the total number of ocean-going vessels, and the proportion of systemic tonnage held by a country in a given year. This data will be used to create a new measurement for naval capabilities which accounts for a level of quality in the state’s military. 
+
+
+##Variables
+There are two dependent variables that are tested in this paper, the occurrence of a MID in a dyad year and the occurrence of a MID which involved either the use of force or resulted in an interstate war. Both variables are binary and
+
+The independent variable of interest in this paper is the naval capacity of the hegemon. The traditional way for researchers to measure naval capacity has been to use either the total tonnage of the ship, or the number of ships in the state’s fleet. This is problematic as this does not actually capture the capability of a state’s fleet. The best way to illustrate this is with an example. Peru currently has within its fleet a De Zeven class cruiser called the Almirante Grau that was built in the Netherlands in 1939 and weighs 9,600 tons. If we compare this to an American equivalent the problem becomes painfully clear. The American Ticonderoga class cruiser was built in the 1980s and 1990s and weighs almost the exact same, roughly 9,600 tons. Two ocean going ships, both catalogued as cruisers, and both weighing roughly 9,600 tons. However, one is built using pre-World War 2 technology and can only attack a target that the crew can physically see. The American ship on the other hand is armed with more than one-hundred missiles capable of traveling several hundred miles, carries the same radar and tracking system as the U.S. ballistic missile shield, and can deploy nuclear weapons. There simply is no comparison between these two ships. However, in previous literature which only uses either the tonnage or the number or class of ships deployed, these two vessels would be considered the exact same. Looking at the data for U.S. naval tonnage from 1950-2011, we can see that the amount of tonnage has gone down.
+
+```{r tonnage_plot, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="\\label{fig:Tonnage per year"}
+plot(Master4$year, Master4$US_Tonnage, main="US Tonnage Over time",
+    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Master4$year,Master4$US_Naval_Cap), col="blue"))
+```
+
+However, as President Barrack Obama once said in a 2012 debate responding to criticism that the U.S. fleet has shrunk, “we also have fewer horses and bayonets.” The former President is alluding to the fact that despite the size of the fleet shrinking, the capability of the U.S. Navy has increased. There is clearly a need to measure what can best be described as the quality of the fleet in order to gain real insight into the capability of the fleet. 
+
+In creating a new measure of naval capability I decided to focus on the capital intensity of the state and the investment into its naval forces. Using the national material capabilities data, I produced what I very broadly called a quality variable by taking the total military expenditures for the US by year and divided that by the number of military personnel. This gave me a variable that measured the amount spend per capita of the U.S. military.
+
+```{r Spending_plot, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="\\label{fig:Spending per capita"}
+plot(Master4$year, Master4$Spending_Per_Soldier, main="Spending per soldier",
+    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Master4$year,Master4$US_Naval_Cap), col="blue"))
+```
+
+I then multiplied this by the proportion tonnage of the entire international system that had been capture by the U.S. in that year. This gives me a new naval capability variable which shows a steady and monotonic rise from 1950 to 2011, coinciding the large increase in the amount spend by the U.S. military per soldier that occurred after the end of the Cold War.
+
+```{r Naval_Capabilities_plot, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="\\label{fig:Bivariate_Naval_Cap"}
+plot(Master4$year, Master4$US_Naval_Cap, main="US Naval Capabilities Over Time",
+    xlab = "Year", ylab = "US Naval Capabilities", lines(lowess(Master4$year,Master4$US_Naval_Cap), col="blue"))
+    ```
+
+The controls for this research are chosen as some of the more common control measures in international conflict research. They control for alternative explanations associated with the regime type of the combatants, the relative strength of one combatant to the other, geographic proximity, and alliance structure.
+	
+The relative capability of the two actors as measured using taking the CINC scores of the first actor in the dyad divided by the second actor. CINC scores are a composite measure of the material capabilities of the state and is produced as part of the National Material Capabilities data by the Correlates of War Project. The index is creating by factoring in roughly a half dozen different annual variables including military personnel, military expenditure, urban population, total population, iron and steel production and energy consumption. 
+	
+A variable identifying if the members of the dyad are in the same region is also included as well as a variable identifying what degree of contiguity the members of the dyad share. Geographic proximity and contiguity have been theorized to make conflict more likely as the members of the dyad are physically closer and have more access to the other member. Another control is added to account for the impact of regime type and the democratic peace. Polity identifies a country as being a democracy if its polity score is greater than 6. If both of the members of the dyad have polity scores above a 6, then the dyad is jointly democratic.
+	
+A variable identifying if at least one member of the dyad is a major power is included in the model as major powers will have greater capabilities and a possible interest in initiating a conflict. A major power may seek to punish another state if that state is trying to disturb the status quo or jeopardize upon the major power’s interests. Similarly, if the other state is a rising country trying to become a regional power, then a major power may attempt to stymie their rise. 
+	
+The last variable included in this dataset is one which identifies if the members of the dyad have an alliance. The specific type of alliance is not observed in this project, but rather the existance of one. Using the alliance data compiled by the Correlates of War project, a variable was created identifying if a defensive alliance, nonaggression pact, neutrality agreement, or and entente existed between the member of the dyad. If one of these alliances existed, then the variable was coded as being “on.” If no alliance was present, then the variable was coded as being “off.”
+
+
+##Analysis
+
+The plot of the first set of results shows the
+
+```{r dotwhisker_plot, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="Bivariate tests on MID occurence"}
+
+dwplot(list(MID_BI_Log, Force_BI_Log),
+        vline = geom_vline(xintercept = 0, colour = "grey60", linetype = 2))
+
+
+```
+
+The results of the bivariate test on violent MID ocurence 
+
+```{r dotwhisker_plot, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="Bivariate tests on MID occurence"}
+
+dwplot(list(MID_BI_Log, Force_BI_Log),
+        vline = geom_vline(xintercept = 0, colour = "grey60", linetype = 2))
 
 
 ```
 
 
 
+##Conclusion
+In this paper I have sought to form a more complete measurement for the naval capability of a hegemonic power that went beyond the traditional measurements of fleet size. By factoring in the level of capital intensity per capita of the state in its military I have created a measure which incorporates the traditional measurement for systemic tonnage as well as taking into consideration the quality of the state’s military. The result was a variable which demonstrated a monotonic increase in naval capabilities from the early 1950s to the present day. This stands in contrast to the traditional measurement of total naval tonnage which demonstrated a near monotonic decrease across the same time period, despite substantial improvements in the quality of the fleet.  
+After creating my new variables and running my statistical tests, I have found evidence to support both of my hypotheses. The logistic regressions demonstrate that there is a statistically significant negative relationship between the naval capability of the hegemon and the propensity for dyads to experience a militarized dispute. This research has plenty of room for improvement in future iterations. First, this paper has only examined the impact of naval capabilities during the time of a single historic hegemon. Future research may include observations for the naval capabilities of past super powers such as the United Kingdom, Spain, and the Netherlands, three hegemonic powers which possessed substantial naval capabilities. New and improved measurements for naval capabilities as more data becomes available as well as the inclusion of additional control parameters are sure to be tested as well. 
