@@ -290,6 +290,58 @@ summary(Force2_BI_Log)
 ODDS_BI_FORCE2 <- exp(coef(Force2_BI_Log))
 
 
+#Full Models
+  #Logistic regression
+MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Ally + Post_Cold_War + Lag_Mid, data = Master4, family=binomial)
+summary(MID_Full_Log) 
+dwplot(MID_Full_Log)
+
+MID_Full_Log <- glm(Mid ~ US_Tonnage + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Ally + Post_Cold_War + Lag_Mid, data = Master4, family=binomial)
+summary(MID_Full_Log) 
+
+
+
+ODDS_MID_FULL <- exp(coef(MID_Full_Log))
+dwplot(ODDS_MID_FULL, show_intercept=TRUE, vline=geom_vline(xintercept=0), dot_args = list(size=3))
+
+cplot(MID_Full_Log, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of MID given US naval capabilities")
+
+Force_Full_Log <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master4, family=binomial)
+ODDS_FORCE_FULL <- exp(coef(Force_Full_Log))
+dwplot(ODDS_FORCE_FULL, show_intercept=TRUE, vline=geom_vline(xintercept=0), dot_args = list(size=3))
+
+Test <- with(Mid, data.frame(US_Naval_Cap = 0:19, Relative_Cap=mean(Relative_Cap, na.rm=TRUE), Joint_Dem=mean(Joint_Dem, na.rm=TRUE), Major=mean(Major, na.rm=TRUE), Same_Region=mean(Same_Region, na.rm=TRUE), Contiguous=mean(Contiguous, na.rm=TRUE), Ally=mean(Ally, na.rm=TRUE)))
+
+Pred_MID_LOG <- predict(m, Test, type="response", se.fit=TRUE)
+
+
+margins(MID_Full_Log, at = list(US_Naval_Cap = 0:19))
+cplot(MID_Full_Log, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of MID given US naval capabilities")
+
+Force_Full_Log2 <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid + Ally, data = Master4, family=binomial)
+summary(Force_Full_Log2)
+dwplot(Force_Full_Log2, show_intercept=TRUE, vline=geom_vline(xintercept=0), dot_args = list(size=3))
+exp(coef(Force_Full_Log2))
+test1 <- data.frame(exp(coef(Force_Full_Log2)))
+ggplot(exp(coef(Force_Full_Log2)))
+
+margins(Force_Full_Log2)
+cplot(Force_Full_Log2, "US_Naval_Cap", what = "prediction", main = "Predicted occurence of (violent)MID given US naval capabilities")
+
+
+
+
+
+MID_Full_Log <- glm(Mid ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War, data = Master4, family=binomial)
+summary(MID_Full_Log)
+dwplot(MID_Full_Log)
+
+Force_Full_Log <- glm(Use_Force ~ US_Naval_Cap + Relative_Cap + Joint_Dem + Major + Same_Region + Contiguous + Post_Cold_War + Lag_Mid, data = Master4, family=binomial)
+summary(Force_Full_Log)
+dwplot(Force_Full_Log)
+
+
+
 ```
 
 
@@ -375,28 +427,26 @@ The last variable included in this dataset is one which identifies if the member
 
 
 ##Analysis
-
 The plot of the first set of results shows the
 
-```{r dotwhisker_plot, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="Bivariate tests on MID occurence"}
+```{r dotwhisker_bivariate_mid, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="Bivariate tests on MID occurence"}
 
-dwplot(list(MID_BI_Log, Force_BI_Log),
-        vline = geom_vline(xintercept = 0, colour = "grey60", linetype = 2))
-
-
+dwplot(list(MID_BI_Log, MID2_BI_Log),
+        vline = geom_vline(xintercept = 0, colour = "grey60", linetype = 2)) + ggtitle("test")
 ```
 
 The results of the bivariate test on violent MID ocurence 
 
-```{r dotwhisker_plot, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="Bivariate tests on MID occurence"}
+```{r dotwhisker_bivariate_force, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="Bivariate tests on violent MID occurence"}
 
-dwplot(list(MID_BI_Log, Force_BI_Log),
+dwplot(list(Force_BI_Log, Force2_BI_Log),
         vline = geom_vline(xintercept = 0, colour = "grey60", linetype = 2))
-
-
 ```
 
+Looking 
 
+```{r dotwhisker_bivariate_force, fig.width = 7, fig.height = 4, warning = FALSE, message = FALSE, echo = FALSE, fig.cap="Full tests on MID occurence"}
+dwplot(ODDS_MID_FULL, show_intercept=TRUE, vline=geom_vline(xintercept=0), dot_args = list(size=3))
 
 ##Conclusion
 In this paper I have sought to form a more complete measurement for the naval capability of a hegemonic power that went beyond the traditional measurements of fleet size. By factoring in the level of capital intensity per capita of the state in its military I have created a measure which incorporates the traditional measurement for systemic tonnage as well as taking into consideration the quality of the state’s military. The result was a variable which demonstrated a monotonic increase in naval capabilities from the early 1950s to the present day. This stands in contrast to the traditional measurement of total naval tonnage which demonstrated a near monotonic decrease across the same time period, despite substantial improvements in the quality of the fleet.  
